@@ -4,6 +4,7 @@ import { StudyMaterialType, GeneratedContent, QuizQuestion, TimelineEvent, Flash
 interface ResultDisplayProps {
   content: GeneratedContent | null;
   type: StudyMaterialType;
+  topic: string;
   onRegenerate: () => void;
   isRegenerating: boolean;
 }
@@ -11,9 +12,38 @@ interface ResultDisplayProps {
 interface DisplayComponentProps {
     onRegenerate: () => void;
     isRegenerating: boolean;
+    topic: string;
 }
 
-const RegenerateButton: React.FC<DisplayComponentProps> = ({ onRegenerate, isRegenerating }) => (
+const ShareButton: React.FC<{ topic: string, type: StudyMaterialType }> = ({ topic, type }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleShare = () => {
+        const url = new URL(window.location.origin + window.location.pathname);
+        url.searchParams.set('topic', topic);
+        url.searchParams.set('type', type);
+        navigator.clipboard.writeText(url.toString()).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }).catch(err => console.error('Failed to copy URL: ', err));
+    };
+
+    return (
+        <button
+            onClick={handleShare}
+            className="flex items-center justify-center bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors duration-200"
+            aria-label="Share this content"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            {copied ? 'Copied!' : 'Share'}
+        </button>
+    );
+};
+
+
+const RegenerateButton: React.FC<Pick<DisplayComponentProps, 'onRegenerate' | 'isRegenerating'>> = ({ onRegenerate, isRegenerating }) => (
     <button
         onClick={onRegenerate}
         disabled={isRegenerating}
@@ -41,11 +71,14 @@ const RegenerateButton: React.FC<DisplayComponentProps> = ({ onRegenerate, isReg
 );
 
 
-const SummaryDisplay: React.FC<{ content: string } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating }) => (
+const SummaryDisplay: React.FC<{ content: string } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating, topic }) => (
   <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
     <div className="flex justify-between items-center mb-4">
         <h3 className="text-2xl font-bold text-primary-600 dark:text-primary-400">{StudyMaterialType.SUMMARY}</h3>
-        <RegenerateButton onRegenerate={onRegenerate} isRegenerating={isRegenerating} />
+        <div className="flex items-center gap-2">
+            <ShareButton topic={topic} type={StudyMaterialType.SUMMARY} />
+            <RegenerateButton onRegenerate={onRegenerate} isRegenerating={isRegenerating} />
+        </div>
     </div>
     <div className="prose prose-slate dark:prose-invert max-w-none">
       {content.split('\n').map((paragraph, index) => (
@@ -55,7 +88,7 @@ const SummaryDisplay: React.FC<{ content: string } & DisplayComponentProps> = ({
   </div>
 );
 
-const QuizDisplay: React.FC<{ content: QuizQuestion[] } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating }) => {
+const QuizDisplay: React.FC<{ content: QuizQuestion[] } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating, topic }) => {
     const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
     const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -78,12 +111,13 @@ const QuizDisplay: React.FC<{ content: QuizQuestion[] } & DisplayComponentProps>
         <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-4">
                  <h3 className="text-2xl font-bold text-primary-600 dark:text-primary-400">{StudyMaterialType.QUIZ}</h3>
-                 <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-2">
                     {isSubmitted && (
                         <div className="text-lg font-semibold bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 px-4 py-2 rounded-full">
                             Score: {getScore()} / {content.length}
                         </div>
                     )}
+                    <ShareButton topic={topic} type={StudyMaterialType.QUIZ} />
                     <RegenerateButton onRegenerate={onRegenerate} isRegenerating={isRegenerating} />
                  </div>
             </div>
@@ -139,11 +173,14 @@ const QuizDisplay: React.FC<{ content: QuizQuestion[] } & DisplayComponentProps>
     );
 };
 
-const TimelineDisplay: React.FC<{ content: TimelineEvent[] } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating }) => (
+const TimelineDisplay: React.FC<{ content: TimelineEvent[] } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating, topic }) => (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-6">
             <h3 className="text-2xl font-bold text-primary-600 dark:text-primary-400">{StudyMaterialType.TIMELINE}</h3>
-            <RegenerateButton onRegenerate={onRegenerate} isRegenerating={isRegenerating} />
+            <div className="flex items-center gap-2">
+                <ShareButton topic={topic} type={StudyMaterialType.TIMELINE} />
+                <RegenerateButton onRegenerate={onRegenerate} isRegenerating={isRegenerating} />
+            </div>
         </div>
         <div className="relative border-l-2 border-primary-300 dark:border-primary-700 ml-4">
             {content.map((item, index) => (
@@ -162,7 +199,7 @@ const TimelineDisplay: React.FC<{ content: TimelineEvent[] } & DisplayComponentP
     </div>
 );
 
-const FlashcardDisplay: React.FC<{ content: Flashcard[] } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating }) => {
+const FlashcardDisplay: React.FC<{ content: Flashcard[] } & DisplayComponentProps> = ({ content, onRegenerate, isRegenerating, topic }) => {
     const [flipped, setFlipped] = useState<Record<number, boolean>>({});
 
     const handleFlip = (index: number) => {
@@ -173,7 +210,10 @@ const FlashcardDisplay: React.FC<{ content: Flashcard[] } & DisplayComponentProp
         <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-md">
              <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-bold text-primary-600 dark:text-primary-400">{StudyMaterialType.FLASHCARDS}</h3>
-                <RegenerateButton onRegenerate={onRegenerate} isRegenerating={isRegenerating} />
+                <div className="flex items-center gap-2">
+                    <ShareButton topic={topic} type={StudyMaterialType.FLASHCARDS} />
+                    <RegenerateButton onRegenerate={onRegenerate} isRegenerating={isRegenerating} />
+                </div>
             </div>
             <p className="text-slate-500 dark:text-slate-400 mb-6">Click on a card to flip it.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -203,20 +243,20 @@ const FlashcardDisplay: React.FC<{ content: Flashcard[] } & DisplayComponentProp
 };
 
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ content, type, onRegenerate, isRegenerating }) => {
+const ResultDisplay: React.FC<ResultDisplayProps> = ({ content, type, onRegenerate, isRegenerating, topic }) => {
   if (!content) {
     return null;
   }
 
   switch (type) {
     case StudyMaterialType.SUMMARY:
-      return <SummaryDisplay content={content as string} onRegenerate={onRegenerate} isRegenerating={isRegenerating} />;
+      return <SummaryDisplay content={content as string} onRegenerate={onRegenerate} isRegenerating={isRegenerating} topic={topic} />;
     case StudyMaterialType.QUIZ:
-      return <QuizDisplay content={content as QuizQuestion[]} onRegenerate={onRegenerate} isRegenerating={isRegenerating} />;
+      return <QuizDisplay content={content as QuizQuestion[]} onRegenerate={onRegenerate} isRegenerating={isRegenerating} topic={topic} />;
     case StudyMaterialType.TIMELINE:
-      return <TimelineDisplay content={content as TimelineEvent[]} onRegenerate={onRegenerate} isRegenerating={isRegenerating} />;
+      return <TimelineDisplay content={content as TimelineEvent[]} onRegenerate={onRegenerate} isRegenerating={isRegenerating} topic={topic} />;
     case StudyMaterialType.FLASHCARDS:
-        return <FlashcardDisplay content={content as Flashcard[]} onRegenerate={onRegenerate} isRegenerating={isRegenerating} />;
+        return <FlashcardDisplay content={content as Flashcard[]} onRegenerate={onRegenerate} isRegenerating={isRegenerating} topic={topic} />;
     default:
       return <div className="text-red-500">Error: Unknown content type.</div>;
   }

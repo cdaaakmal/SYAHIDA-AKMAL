@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { StudyMaterialType, GeneratedContent } from './types';
 import { generateStudyMaterial } from './services/geminiService';
 import ResultDisplay from './components/ResultDisplay';
@@ -72,6 +72,36 @@ const App: React.FC = () => {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialLoadHandled = useRef(false);
+
+  useEffect(() => {
+    if (initialLoadHandled.current) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const topicFromUrl = urlParams.get('topic');
+    const typeFromUrl = urlParams.get('type') as StudyMaterialType;
+    const isValidType = Object.values(StudyMaterialType).includes(typeFromUrl);
+
+    if (topicFromUrl && isValidType) {
+        initialLoadHandled.current = true;
+        setTopic(topicFromUrl);
+        setMaterialType(typeFromUrl);
+        
+        const generateFromUrl = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const content = await generateStudyMaterial(topicFromUrl, typeFromUrl);
+                setGeneratedContent(content);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        generateFromUrl();
+    }
+  }, []);
 
   const handleGenerate = useCallback(async () => {
     if (!topic.trim()) {
@@ -163,7 +193,7 @@ const App: React.FC = () => {
                 <p>{error}</p>
               </div>
             ) : generatedContent ? (
-              <ResultDisplay content={generatedContent} type={materialType} onRegenerate={handleGenerate} isRegenerating={isLoading}/>
+              <ResultDisplay content={generatedContent} type={materialType} onRegenerate={handleGenerate} isRegenerating={isLoading} topic={topic} />
             ) : (
                 <WelcomeMessage />
             )}
